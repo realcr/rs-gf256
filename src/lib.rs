@@ -84,6 +84,9 @@ impl Gf256 {
 	pub fn to_byte(&self) -> u8 {
 		self.poly
 	}
+
+    /// Find the logrithm of self in base x.
+    /// In other words, find a value i such that x ^ i == self
 	pub fn log(&self) -> Option<u8> {
 		if self.poly == 0 {
 			None
@@ -92,13 +95,27 @@ impl Gf256 {
 			Some(tabs.log[self.poly as usize])
 		}
 	}
-	pub fn exp(power: u8) -> Gf256 {
+
+    /// Calculate x ^ power
+	pub fn xexp(power: u8) -> Gf256 {
 		let tabs = get_tables();
 		Gf256 { poly: tabs.exp[power as usize] }
 	}
 
+    /// Calculate self ^ power
+	pub fn exp(&self, power: u8) -> Gf256 {
+        match self.log() {
+            None => Self::zero(),
+            Some(i) => { 
+                // Current value is x^i
+                Self::xexp((((i as u16) * (power as u16)) % 255) as u8)
+            },
+        }
+	}
+
+    /// Find the inverse of self: A number y such that self * y == 1
 	pub fn inv(&self) -> Option<Gf256> {
-		self.log().map(|l| Gf256::exp(255 - l))
+		self.log().map(|l| Gf256::xexp(255 - l))
 	}
 }
 
@@ -123,7 +140,7 @@ impl Mul<Gf256> for Gf256 {
 	fn mul(self, rhs: Gf256) -> Gf256 {
 		if let (Some(l1), Some(l2)) = (self.log(), rhs.log()) {
 			let tmp = ((l1 as u16) + (l2 as u16)) % 255;
-			Gf256::exp(tmp as u8)
+			Gf256::xexp(tmp as u8)
 		} else {
 			Gf256 { poly: 0 }
 		}
@@ -136,7 +153,7 @@ impl Div<Gf256> for Gf256 {
 		let l2 = rhs.log().expect("Division by zero");
 		if let Some(l1) = self.log() {
 			let tmp = ((l1 as u16) + 255 - (l2 as u16)) % 255;
-			Gf256::exp(tmp as u8)
+			Gf256::xexp(tmp as u8)
 		} else {
 			Gf256 { poly: 0 }
 		}
@@ -232,6 +249,21 @@ mod tests {
 
         let res = zero.inv();
         assert_eq!(res, None);
+    }
+
+    #[test]
+    fn test_exp() {
+        let a = Gf256::from_byte(0x8f);
+
+        println!("a.log() = {}",a.log().unwrap());
+
+        assert_eq!(a.exp(0), Gf256::one());
+        assert_eq!(a.exp(1), a);
+        assert_eq!(a.exp(2), a*a);
+        assert_eq!(a.exp(3), a*a*a);
+
+        // Fermat's little theorem:
+        assert_eq!(a.exp(255), Gf256::one());
     }
 }
 
