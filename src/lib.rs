@@ -255,8 +255,6 @@ mod tests {
     fn test_exp() {
         let a = Gf256::from_byte(0x8f);
 
-        println!("a.log() = {}",a.log().unwrap());
-
         assert_eq!(a.exp(0), Gf256::one());
         assert_eq!(a.exp(1), a);
         assert_eq!(a.exp(2), a*a);
